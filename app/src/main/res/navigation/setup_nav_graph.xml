@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/setup_nav_graph"
+    app:startDestination="@id/userNameFragment">
+
+    <fragment
+        android:id="@+id/userNameFragment"
+        android:name="com.blez.doodlekong.ui.setup.fragment.username.UserNameFragment"
+        android:label="fragment_user_name"
+        tools:layout="@layout/fragment_user_name" >
+        <action
+            android:id="@+id/action_userNameFragment_to_selectRoomFragment"
+            app:destination="@id/selectRoomFragment" />
+        <argument
+            android:name="username"
+            app:argType="string" />
+    </fragment>
+    <fragment
+        android:id="@+id/selectRoomFragment"
+        android:name="com.blez.doodlekong.ui.setup.fragment.select.SelectRoomFragment"
+        android:label="fragment_select_room"
+        tools:layout="@layout/fragment_select_room" >
+        <action
+            android:id="@+id/action_selectRoomFragment_to_createRoomFragment"
+            app:destination="@id/createRoomFragment" />
+        <action
+            android:id="@+id/action_selectRoomFragment_to_drawingActivity"
+            app:destination="@id/drawingActivity" />
+        <argument
+            android:name="username"
+            app:argType="string" />
+    </fragment>
+    <fragment
+        android:id="@+id/createRoomFragment"
+        android:name="com.blez.doodlekong.ui.setup.fragment.createRoom.CreateRoomFragment"
+        android:label="fragment_create_room"
+        tools:layout="@layout/fragment_create_room" >
+        <action
+            android:id="@+id/action_createRoomFragment_to_drawingActivity"
+            app:destination="@id/drawingActivity" />
+        <argument
+            android:name="username"
+            app:argType="string" />
+    </fragment>
+    <activity
+        android:id="@+id/drawingActivity"
+        android:name="com.blez.doodlekong.ui.drawing.DrawingActivity"
+        android:label="activity_drawing"
+        tools:layout="@layout/activity_drawing" >
+        <argument
+            android:name="username"
+            app:argType="string" />
+        <argument
+            android:name="roomName"
+            app:argType="string" />
+    </activity>
+</navigation>
