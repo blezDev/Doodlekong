@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.blez.doodlekong.data.remote.ws.Room
 import com.blez.doodlekong.repository.SetupRepository
+import com.blez.doodlekong.utils.Constants.MAX_ROOM_NAME_LENGTH
 import com.blez.doodlekong.utils.Constants.MAX_USERNAME_LENGTH
+import com.blez.doodlekong.utils.Constants.MIN_ROOM_NAME_LENGTH
 import com.blez.doodlekong.utils.Constants.MIN_USERNAME_LENGTH
 import com.blez.doodlekong.utils.DispatcherProvider
+import com.blez.doodlekong.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +39,7 @@ sealed class SetupEvent {
     object GetRoomEmptyEvent : SetupEvent()
 
 
-    data class JoinRoomEvent(val username : String) : SetupEvent()
+    data class JoinRoomEvent(val roomName : String) : SetupEvent()
     data class JoinRoomErrorEvent(val error : String) : SetupEvent()
 }
     private val _setupEvent = MutableSharedFlow<SetupEvent>()
@@ -50,14 +53,15 @@ sealed class SetupEvent {
     fun validateUsernameAndNavigateToSelectRoom(username : String){
         viewModelScope.launch(dispatcherState.main)
         {
+            val trimmedUsername = username.trim()
               when {
-                  username.isEmpty()->{
-                      _setupEvent.emit(SetupEvent.InputEmptyError)
+                  trimmedUsername.isEmpty()->{
+                      _setupEvent.emit(SetupEvent.InputEmpty)
                   }
-                  username.length < MIN_USERNAME_LENGTH->{
+                  trimmedUsername.length < MIN_USERNAME_LENGTH->{
                       _setupEvent.emit(SetupEvent.InputTooShortError)
                   }
-                  username.length > MAX_USERNAME_LENGTH->{
+                  trimmedUsername.length > MAX_USERNAME_LENGTH->{
                       _setupEvent.emit(SetupEvent.InputTooLongError)
                   }
                   else ->{
@@ -67,6 +71,61 @@ sealed class SetupEvent {
         }
     }
 
+    fun createRoom(room : Room){
+        viewModelScope.launch(dispatcherState.main) {
+            val trimmedRoomName = room.name.trim()
+            when
+            {
+                trimmedRoomName.isEmpty()->{
+                    _setupEvent.emit(SetupEvent.InputEmptyError)
+                }
+                trimmedRoomName.length < MIN_ROOM_NAME_LENGTH->{
+                    _setupEvent.emit(SetupEvent.InputTooShortError)
+                }
+                trimmedRoomName.length > MAX_ROOM_NAME_LENGTH->{
+                    _setupEvent.emit(SetupEvent.InputTooLongError)
+                }
+                else ->{
+                    val result = setupRepository.createRoom(room)
+                    if (result is Resource.Success)
+                    {
+                        _setupEvent.emit(SetupEvent.CreateRoomEvent(room))
+                    }
+                    else
+                    {
+                        _setupEvent.emit(SetupEvent.CreateRoomErrorEvent(result.message ?: return@launch))
+                    }
+                }
 
+            }
+
+        }
+    }
+
+    fun getRooms(searchQuery : String)
+    {
+        _rooms.value = SetupEvent.GetRoomLoadingEvent
+        viewModelScope.launch(dispatcherState.main) {
+        val result = setupRepository.getRoom(searchQuery)
+            if (result is Resource.Success)
+                _rooms.value = SetupEvent.GetRoomEvent(result.data?: return@launch)
+            else
+            _setupEvent.emit(SetupEvent.GetRoomErrorEvent(result.message ?: return@launch))
+
+        }
+    }
+
+    fun joinRoom(username : String,roomName : String)
+    {
+        _rooms.value = SetupEvent.GetRoomLoadingEvent
+        viewModelScope.launch(dispatcherState.main) {
+            val result = setupRepository.joinRoom(username, roomName)
+            if (result is Resource.Success)
+                _setupEvent.emit(SetupEvent.JoinRoomEvent(roomName))
+            else
+                _setupEvent.emit(SetupEvent.JoinRoomErrorEvent(result.message ?: return@launch))
+
+        }
+    }
 
 }

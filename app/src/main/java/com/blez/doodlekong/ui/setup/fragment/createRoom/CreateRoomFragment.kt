@@ -6,8 +6,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.blez.doodlekong.R
+import dagger.hilt.android.AndroidEntryPoint
 
-
+@AndroidEntryPoint
 class CreateRoomFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

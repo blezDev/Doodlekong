@@ -12,7 +12,8 @@
         tools:layout="@layout/fragment_user_name" >
         <action
             android:id="@+id/action_userNameFragment_to_selectRoomFragment"
-            app:destination="@id/selectRoomFragment" />
+            app:destination="@id/selectRoomFragment"
+            app:popUpTo="@id/userNameFragment" />
         <argument
             android:name="username"
             app:argType="string" />

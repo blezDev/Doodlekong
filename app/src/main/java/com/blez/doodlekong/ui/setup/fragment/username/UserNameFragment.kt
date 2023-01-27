@@ -1,26 +1,74 @@
 package com.blez.doodlekong.ui.setup.fragment.username
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.databinding.DataBindingUtil
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.blez.doodlekong.R
+import com.blez.doodlekong.databinding.FragmentUserNameBinding
+import com.blez.doodlekong.ui.setup.SetupViewModel
+import com.blez.doodlekong.utils.Constants
+import com.blez.doodlekong.utils.navigateSafely
+import com.blez.doodlekong.utils.snakeBar
+import dagger.hilt.android.AndroidEntryPoint
 
 
+@AndroidEntryPoint
 class UserNameFragment : Fragment() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-    }
+    private lateinit var binding: FragmentUserNameBinding
+    private val setupViewModel: SetupViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        binding = DataBindingUtil.inflate(inflater, R.layout.fragment_user_name, container, false)
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_user_name, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        listenToEvents()
+        binding.btnNext.setOnClickListener {
+            setupViewModel.validateUsernameAndNavigateToSelectRoom(
+                binding.etUsername.text.toString()
+            )
+
+        }
+
+    }
+
+    private fun listenToEvents() {
+        lifecycleScope.launchWhenCreated {
+            setupViewModel.setupEvent.collect { event ->
+                when (event) {
+                    is SetupViewModel.SetupEvent.NavigateToSelectRoomEvent -> {
+                        findNavController().navigateSafely(R.id.action_userNameFragment_to_selectRoomFragment,
+                        args = Bundle().apply
+                         { putString("username",event.username) })
+
+                    }
+                    is SetupViewModel.SetupEvent.InputEmpty ->{
+                        snakeBar(getString(R.string.error_field_empty))
+
+                    }
+                    is SetupViewModel.SetupEvent.InputTooShortError->{
+                        snakeBar(getString(R.string.error_room_name_too_short,Constants.MIN_ROOM_NAME_LENGTH))
+                    }
+                    is SetupViewModel.SetupEvent.InputTooLongError->{
+                        snakeBar(getString(R.string.error_room_name_too_long,Constants.MAX_USERNAME_LENGTH))
+                    }
+                    else -> Unit
+
+                }
+            }
+        }
     }
 
 

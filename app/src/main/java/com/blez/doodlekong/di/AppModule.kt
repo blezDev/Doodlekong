@@ -2,6 +2,8 @@ package com.blez.doodlekong.di
 
 import android.content.Context
 import com.blez.doodlekong.data.remote.api.SetupApi
+import com.blez.doodlekong.repository.DefaultSetupRepositoryImpl
+import com.blez.doodlekong.repository.SetupRepository
 import com.blez.doodlekong.utils.Constants.HTTP_BASE_URL
 import com.blez.doodlekong.utils.Constants.HTTP_BASE_URL_LOCAL_HOST
 import com.blez.doodlekong.utils.Constants.USE_LOCALHOST
@@ -41,7 +43,9 @@ object AppModule {
     fun providesApplicationContext(@ApplicationContext context: Context) = context
 
 
-
+    @Singleton
+    @Provides
+    fun providesSetupRepository(setupApi: SetupApi,@ApplicationContext context: Context) : SetupRepository = DefaultSetupRepositoryImpl(setupApi, context)
 
     @Singleton
     @Provides
