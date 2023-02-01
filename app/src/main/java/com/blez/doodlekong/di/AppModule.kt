@@ -8,6 +8,8 @@ import com.blez.doodlekong.utils.Constants.HTTP_BASE_URL
 import com.blez.doodlekong.utils.Constants.HTTP_BASE_URL_LOCAL_HOST
 import com.blez.doodlekong.utils.Constants.USE_LOCALHOST
 import com.blez.doodlekong.utils.DispatcherProvider
+import com.blez.doodlekong.utils.clientId
+import com.blez.doodlekong.utils.dataStore
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.Module
@@ -17,6 +19,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -29,8 +32,15 @@ object AppModule {
 
     @Provides
     @Singleton
-   fun provideOkHttpClient() : OkHttpClient{
+   fun provideOkHttpClient(clientId : String) : OkHttpClient{
        return OkHttpClient.Builder()
+           .addInterceptor{chain ->
+               val url = chain.request().url.newBuilder()
+                   .addQueryParameter("client_Id",clientId)
+                   .build()
+               val request = chain.request().newBuilder().url(url).build()
+               chain.proceed(request)
+           }
            .addInterceptor(HttpLoggingInterceptor().apply {
                level = HttpLoggingInterceptor.Level.BODY
            })
@@ -41,6 +51,12 @@ object AppModule {
     @Singleton
     @Provides
     fun providesApplicationContext(@ApplicationContext context: Context) = context
+
+    @Singleton
+    @Provides
+    fun providesClientId(@ApplicationContext context: Context) : String {
+        return runBlocking {context.dataStore.clientId() }
+    }
 
 
     @Singleton

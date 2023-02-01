@@ -6,12 +6,12 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.blez.doodlekong.R
 import com.blez.doodlekong.databinding.FragmentUserNameBinding
-import com.blez.doodlekong.ui.setup.SetupViewModel
+import com.blez.doodlekong.ui.setup.UserViewModel
 import com.blez.doodlekong.utils.Constants
 import com.blez.doodlekong.utils.navigateSafely
 import com.blez.doodlekong.utils.snakeBar
@@ -21,7 +21,7 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class UserNameFragment : Fragment() {
     private lateinit var binding: FragmentUserNameBinding
-    private val setupViewModel: SetupViewModel by activityViewModels()
+    private val userNameViewModel: UserViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -36,7 +36,7 @@ class UserNameFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         listenToEvents()
         binding.btnNext.setOnClickListener {
-            setupViewModel.validateUsernameAndNavigateToSelectRoom(
+            userNameViewModel.validateUsernameAndNavigateToSelectRoom(
                 binding.etUsername.text.toString()
             )
 
@@ -46,22 +46,22 @@ class UserNameFragment : Fragment() {
 
     private fun listenToEvents() {
         lifecycleScope.launchWhenCreated {
-            setupViewModel.setupEvent.collect { event ->
+            userNameViewModel.setupEvent.collect { event ->
                 when (event) {
-                    is SetupViewModel.SetupEvent.NavigateToSelectRoomEvent -> {
+                    is UserViewModel.SetupEvent.NavigateToSelectRoomEvent -> {
                         findNavController().navigateSafely(R.id.action_userNameFragment_to_selectRoomFragment,
                         args = Bundle().apply
                          { putString("username",event.username) })
 
                     }
-                    is SetupViewModel.SetupEvent.InputEmpty ->{
+                    is UserViewModel.SetupEvent.InputEmpty ->{
                         snakeBar(getString(R.string.error_field_empty))
 
                     }
-                    is SetupViewModel.SetupEvent.InputTooShortError->{
+                    is UserViewModel.SetupEvent.InputTooShortError->{
                         snakeBar(getString(R.string.error_room_name_too_short,Constants.MIN_ROOM_NAME_LENGTH))
                     }
-                    is SetupViewModel.SetupEvent.InputTooLongError->{
+                    is UserViewModel.SetupEvent.InputTooLongError->{
                         snakeBar(getString(R.string.error_room_name_too_long,Constants.MAX_USERNAME_LENGTH))
                     }
                     else -> Unit

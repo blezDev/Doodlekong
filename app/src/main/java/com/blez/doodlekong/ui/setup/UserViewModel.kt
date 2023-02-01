@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SetupViewModel @Inject constructor(private val setupRepository: SetupRepository, private val dispatcherState: DispatcherProvider) : ViewModel() {
+class UserViewModel @Inject constructor(private val setupRepository: SetupRepository, private val dispatcherState: DispatcherProvider) : ViewModel() {
 
 sealed class SetupEvent {
     object InputEmpty : SetupEvent()
@@ -47,8 +47,7 @@ sealed class SetupEvent {
     get() = _setupEvent
 
 
-    private val _rooms = MutableStateFlow<SetupEvent>(SetupEvent.GetRoomEmptyEvent)
-    val rooms : StateFlow<SetupEvent> = _rooms
+
 
     fun validateUsernameAndNavigateToSelectRoom(username : String){
         viewModelScope.launch(dispatcherState.main)
@@ -102,30 +101,6 @@ sealed class SetupEvent {
         }
     }
 
-    fun getRooms(searchQuery : String)
-    {
-        _rooms.value = SetupEvent.GetRoomLoadingEvent
-        viewModelScope.launch(dispatcherState.main) {
-        val result = setupRepository.getRoom(searchQuery)
-            if (result is Resource.Success)
-                _rooms.value = SetupEvent.GetRoomEvent(result.data?: return@launch)
-            else
-            _setupEvent.emit(SetupEvent.GetRoomErrorEvent(result.message ?: return@launch))
 
-        }
-    }
-
-    fun joinRoom(username : String,roomName : String)
-    {
-        _rooms.value = SetupEvent.GetRoomLoadingEvent
-        viewModelScope.launch(dispatcherState.main) {
-            val result = setupRepository.joinRoom(username, roomName)
-            if (result is Resource.Success)
-                _setupEvent.emit(SetupEvent.JoinRoomEvent(roomName))
-            else
-                _setupEvent.emit(SetupEvent.JoinRoomErrorEvent(result.message ?: return@launch))
-
-        }
-    }
 
 }
