@@ -79,6 +79,7 @@ class DrawingView @JvmOverloads constructor(context: Context,attrs : AttributeSe
         val dy = abs(toY -(curY?:return))
         if (dx >= smoothness || dy>= smoothness){
 
+
         }
     }
 
