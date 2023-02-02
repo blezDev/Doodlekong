@@ -3,6 +3,8 @@ package com.blez.doodlekong.ui.views
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
+import android.view.MotionEvent
+import android.view.MotionEvent.*
 import android.view.View
 import com.blez.doodlekong.utils.Constants
 import java.lang.Math.abs
@@ -78,11 +80,50 @@ class DrawingView @JvmOverloads constructor(context: Context,attrs : AttributeSe
         val dx = abs(toX - (curX?: return))
         val dy = abs(toY -(curY?:return))
         if (dx >= smoothness || dy>= smoothness){
+        isDrawing = true
+            path.quadTo(curX!!,curY!!,(curX!!+ toX)/2f,(curY!!+toY)/2f)
 
-
+            curX = toX
+            curY = toY
+            invalidate()
         }
     }
 
+    private fun releasedTouch(){
+        isDrawing =false
+        path.lineTo(curX?: return,curY ?:return)
+        paths.push(PathData(path = path,paint.color,paint.strokeWidth))
+        pathDataChangedListener?.let { change->
+            change(paths)
+        }
+       path = Path()
+        invalidate()
+    }
+
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        if (!isEnabled)
+        {return false}
+        val newX = event?.x
+        val newY = event?.y
+        when(event?.action){
+            ACTION_DOWN->startedTouch(newX?:return false,newY?:return false)
+            ACTION_MOVE->movedTouch(newX?:return false,newY?:return false)
+            ACTION_UP->releasedTouch()
+        }
+        return true
+    }
+
+    fun setThickness(thickness: Float){
+        paint.strokeWidth = thickness
+    }
+    fun setColor(color: Int){
+        paint.color = color
+    }
+    fun clear()
+    {
+        canvas?.drawColor(Color.TRANSPARENT,PorterDuff.Mode.MULTIPLY)
+        paths.clear()
+    }
     override fun setOnTouchListener(l: OnTouchListener?) {
         super.setOnTouchListener(l)
     }
