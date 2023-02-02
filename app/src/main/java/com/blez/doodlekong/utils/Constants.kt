@@ -12,4 +12,5 @@ object Constants {
     const val MAX_ROOM_NAME_LENGTH = 16
 
     const val SEARCH_DELAY = 300L
+    const val DEFAULT_PAINT_THICKNESS = 12f
 }
