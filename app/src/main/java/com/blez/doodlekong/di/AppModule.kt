@@ -1,17 +1,26 @@
 package com.blez.doodlekong.di
 
+import android.app.Application
 import android.content.Context
 import com.blez.doodlekong.data.remote.api.SetupApi
+import com.blez.doodlekong.data.remote.ws.DrawingApi
 import com.blez.doodlekong.repository.DefaultSetupRepositoryImpl
 import com.blez.doodlekong.repository.SetupRepository
 import com.blez.doodlekong.utils.Constants.HTTP_BASE_URL
 import com.blez.doodlekong.utils.Constants.HTTP_BASE_URL_LOCAL_HOST
+import com.blez.doodlekong.utils.Constants.RECONNECT_INTERVAL
 import com.blez.doodlekong.utils.Constants.USE_LOCALHOST
+import com.blez.doodlekong.utils.Constants.WS_BASE_URL
+import com.blez.doodlekong.utils.Constants.WS_BASE_URL_LOCAL_HOST
 import com.blez.doodlekong.utils.DispatcherProvider
 import com.blez.doodlekong.utils.clientId
 import com.blez.doodlekong.utils.dataStore
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.tinder.scarlet.Scarlet
+import com.tinder.scarlet.lifecycle.android.AndroidLifecycle
+import com.tinder.scarlet.retry.LinearBackoffStrategy
+import com.tinder.scarlet.websocket.okhttp.newWebSocketFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -69,6 +78,20 @@ object AppModule {
     fun providesGsonInstance() : Gson{
         return Gson()
     }
+
+    @Singleton
+    @Provides
+    fun providesDrawingApi(app : Application,okHttpClient: OkHttpClient) : DrawingApi{
+        return Scarlet.Builder()
+            .backoffStrategy(LinearBackoffStrategy(RECONNECT_INTERVAL))
+            .lifecycle(AndroidLifecycle.ofApplicationForeground(app))
+            .webSocketFactory(okHttpClient.newWebSocketFactory(if (USE_LOCALHOST) WS_BASE_URL_LOCAL_HOST else WS_BASE_URL))
+            .addMessageAdapterFactory()
+            .build()
+    }
+
+
+
 
     @Singleton
     @Provides
