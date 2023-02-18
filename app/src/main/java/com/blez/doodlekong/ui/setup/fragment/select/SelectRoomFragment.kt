@@ -96,7 +96,7 @@ class SelectRoomFragment : Fragment() {
                     binding.tvNoRoomsFound.isVisible = isRoomEmpty
                     binding.ivNoRoomsFound.isVisible = isRoomEmpty
                     updateRoomJob?.cancel()
-                 updateRoomJob = lifecycleScope.launch {
+                    updateRoomJob = lifecycleScope.launch {
                         roomAdapter.updataDataset(events.rooms)
                     }
                 }

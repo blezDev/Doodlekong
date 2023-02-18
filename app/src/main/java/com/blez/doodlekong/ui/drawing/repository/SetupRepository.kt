@@ -1,4 +1,4 @@
-package com.blez.doodlekong.repository
+package com.blez.doodlekong.ui.drawing.repository
 
 import com.blez.doodlekong.data.remote.responses.BasicApiResponse
 import com.blez.doodlekong.data.remote.ws.Room

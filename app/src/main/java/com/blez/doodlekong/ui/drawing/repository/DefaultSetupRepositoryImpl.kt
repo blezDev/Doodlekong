@@ -1,4 +1,4 @@
-package com.blez.doodlekong.repository
+package com.blez.doodlekong.ui.drawing.repository
 
 import android.content.Context
 import com.blez.doodlekong.R
@@ -10,7 +10,8 @@ import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
 
-class DefaultSetupRepositoryImpl @Inject constructor(private val setupApi: SetupApi,private val context: Context) : SetupRepository{
+class DefaultSetupRepositoryImpl @Inject constructor(private val setupApi: SetupApi,private val context: Context) :
+    SetupRepository {
     override suspend fun createRoom(room: Room): Resource<Unit> {
       if (context.checkForInternetConnection()){
         val response = try {

@@ -3,7 +3,7 @@ package com.blez.doodlekong.ui.setup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.blez.doodlekong.data.remote.ws.Room
-import com.blez.doodlekong.repository.SetupRepository
+import com.blez.doodlekong.ui.drawing.repository.SetupRepository
 import com.blez.doodlekong.utils.Constants.MAX_ROOM_NAME_LENGTH
 import com.blez.doodlekong.utils.Constants.MAX_USERNAME_LENGTH
 import com.blez.doodlekong.utils.Constants.MIN_ROOM_NAME_LENGTH
