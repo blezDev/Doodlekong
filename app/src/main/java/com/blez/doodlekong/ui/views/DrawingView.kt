@@ -6,21 +6,23 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.MotionEvent.*
 import android.view.View
+import com.blez.doodlekong.data.remote.ws.DrawData
 import com.blez.doodlekong.utils.Constants
 import java.lang.Math.abs
-import java.util.Stack
+import java.util.*
 
-class DrawingView @JvmOverloads constructor(context: Context,attrs : AttributeSet?=null) :View(context, attrs) {
-    private var viewWidth : Int ?= null
-    private var viewHeight : Int ?= null
-    private var bitmap : Bitmap?=null
-    private var canvas : Canvas?=null
-    private var curY : Float?=null
-    private var curX : Float?= null
+class DrawingView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
+    View(context, attrs) {
+    private var viewWidth: Int? = null
+    private var viewHeight: Int? = null
+    private var bitmap: Bitmap? = null
+    private var canvas: Canvas? = null
+    private var curY: Float? = null
+    private var curX: Float? = null
     var smoothness = 5
     var isDrawing = false
 
-    private var paint  = Paint(Paint.DITHER_FLAG).apply {
+    private var paint = Paint(Paint.DITHER_FLAG).apply {
         isDither = true
         isAntiAlias = true
         color = Color.BLACK
@@ -34,9 +36,22 @@ class DrawingView @JvmOverloads constructor(context: Context,attrs : AttributeSe
     private var path = Path()
 
     private var paths = Stack<PathData>()
-    private var pathDataChangedListener :  ((Stack<PathData>)->Unit) ?= null
+    private var pathDataChangedListener: ((Stack<PathData>) -> Unit)? = null
+    private var startedTouch = false
+    var roomName: String? = null
 
-    fun setOnPathDataChangedListener(listener : ((Stack<PathData>)-> Unit)){
+    var isUserDrawing = false
+        set(value) {
+            isEnabled = value
+            field = value
+        }
+
+    private var onDrawListener: ((DrawData) -> Unit)? = null
+    fun setOnDrawListener(listener: ((DrawData) -> Unit)) {
+        onDrawListener = listener
+    }
+
+    fun setOnPathDataChangedListener(listener: ((Stack<PathData>) -> Unit)) {
         pathDataChangedListener = listener
 
     }
@@ -45,7 +60,7 @@ class DrawingView @JvmOverloads constructor(context: Context,attrs : AttributeSe
         super.onSizeChanged(w, h, oldw, oldh)
         viewWidth = w
         viewHeight = h
-        bitmap = Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
+        bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         canvas = Canvas(bitmap!!)
     }
 
@@ -53,35 +68,43 @@ class DrawingView @JvmOverloads constructor(context: Context,attrs : AttributeSe
         super.onDraw(canvas)
         val initialColor = paint.color
         val initialThickness = paint.strokeWidth
-        for (pathData in paths)
-        {
+        for (pathData in paths) {
             paint.apply {
                 color = pathData.color
                 strokeWidth = pathData.thickness
             }
-            canvas?.drawPath(pathData.path,paint)
+            canvas?.drawPath(pathData.path, paint)
         }
         paint.apply {
             color = initialColor
             strokeWidth = initialThickness
         }
-        canvas?.drawPath(path,paint)
+        canvas?.drawPath(path, paint)
     }
 
-    private fun startedTouch(x : Float,y: Float)
-    {
+    private fun startedTouch(x: Float, y: Float) {
         path.reset()
         path.moveTo(x, y)
         curX = x
         curY = y
+        onDrawListener?.let { draw->
+            val drawData = createDrawData(x,y,x,y, ACTION_DOWN)
+            drawData
+        }
         invalidate()
     }
-    private fun movedTouch(toX : Float,toY : Float){
-        val dx = abs(toX - (curX?: return))
-        val dy = abs(toY -(curY?:return))
-        if (dx >= smoothness || dy>= smoothness){
-        isDrawing = true
-            path.quadTo(curX!!,curY!!,(curX!!+ toX)/2f,(curY!!+toY)/2f)
+
+    private fun movedTouch(toX: Float, toY: Float) {
+        val dx = abs(toX - (curX ?: return))
+        val dy = abs(toY - (curY ?: return))
+        if (dx >= smoothness || dy >= smoothness) {
+            isDrawing = true
+            path.quadTo(curX!!, curY!!, (curX!! + toX) / 2f, (curY!! + toY) / 2f)
+            onDrawListener?.let { draw->
+                val drawData = createDrawData(curX!!,curY!!,toX,toY, ACTION_MOVE)
+                drawData
+            }
+
 
             curX = toX
             curY = toY
@@ -89,48 +112,134 @@ class DrawingView @JvmOverloads constructor(context: Context,attrs : AttributeSe
         }
     }
 
-    private fun releasedTouch(){
-        isDrawing =false
-        path.lineTo(curX?: return,curY ?:return)
-        paths.push(PathData(path = path,paint.color,paint.strokeWidth))
-        pathDataChangedListener?.let { change->
+
+    fun startedTouchExternally(drawData: DrawData){
+        parseDrawData(drawData).apply {
+            paint.color = color
+            paint.strokeWidth = thickness
+            path.reset()
+            path.moveTo(fromX,fromY)
+            invalidate()
+            startedTouch = true
+
+        }
+    }
+    fun movedTouchExternally(drawData: DrawData){
+        parseDrawData(drawData).apply {
+           val dx = abs(toX - fromX)
+            val dy = abs(toY - fromY)
+            if(!startedTouch){
+                startedTouchExternally(drawData)
+            }
+            if(dx >= smoothness || dy >= smoothness){
+                path.quadTo(fromX, fromY,(fromX + toX )/2f,(fromY + toY)/2f)
+                invalidate()
+            }
+        }
+    }
+    fun releasedTouchExternally(drawData: DrawData){
+        parseDrawData(drawData).apply {
+            path.lineTo(fromX,fromY)
+            canvas?.drawPath(path, paint)
+            paths.push(PathData(path,paint.color,paint.strokeWidth))
+            pathDataChangedListener?.let {
+                it(paths)
+            }
+            path = Path()
+            invalidate()
+            startedTouch = false
+
+        }
+    }
+
+    override fun setEnabled(enabled: Boolean) {
+        super.setEnabled(enabled)
+        path.reset()
+        invalidate()
+    }
+    fun undo(){
+        if (paths.isNotEmpty())
+        {
+            paths.pop()
+            pathDataChangedListener?.let { change->
+            change(paths)
+            }
+            invalidate()
+        }
+    }
+
+    private fun createDrawData(
+        fromX: Float,
+        fromY: Float,
+        toX: Float,
+        toY: Float,
+        motionEvent: Int
+    ): DrawData {
+        return DrawData(
+            roomName ?: throw IllegalStateException("Must set the roomName in drawing view"),
+            paint.color, paint.strokeWidth, fromX/viewWidth!!, fromY/viewHeight!!, toX/viewWidth!!, toY/viewHeight!!, motionEvent
+        )
+    }
+    private fun parseDrawData(drawData : DrawData) : DrawData{
+        return  drawData.copy(
+            fromX = drawData.fromX * viewWidth!!,
+            fromY = drawData.fromY * viewHeight!!,
+            toX = drawData.toX * viewWidth!!,
+            toY = drawData.toY * viewHeight!!,
+            motionEvent = drawData.motionEvent
+
+        )
+    }
+
+    private fun releasedTouch() {
+        isDrawing = false
+        path.lineTo(curX ?: return, curY ?: return)
+        paths.push(PathData(path = path, paint.color, paint.strokeWidth))
+        pathDataChangedListener?.let { change ->
             change(paths)
         }
-       path = Path()
+        onDrawListener?.let { draw->
+            val drawData = createDrawData(curX!!,curY!!,curX!!,curY!!, ACTION_UP)
+            drawData
+        }
+
+
+        path = Path()
         invalidate()
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        if (!isEnabled)
-        {return false}
+        if (!isEnabled) {
+            return false
+        }
         val newX = event?.x
         val newY = event?.y
-        when(event?.action){
-            ACTION_DOWN->startedTouch(newX?:return false,newY?:return false)
-            ACTION_MOVE->movedTouch(newX?:return false,newY?:return false)
-            ACTION_UP->releasedTouch()
+        when (event?.action) {
+            ACTION_DOWN -> startedTouch(newX ?: return false, newY ?: return false)
+            ACTION_MOVE -> movedTouch(newX ?: return false, newY ?: return false)
+            ACTION_UP -> releasedTouch()
         }
         return true
     }
 
-    fun setThickness(thickness: Float){
+    fun setThickness(thickness: Float) {
         paint.strokeWidth = thickness
     }
-    fun setColor(color: Int){
+
+    fun setColor(color: Int) {
         paint.color = color
     }
-    fun clear()
-    {
-        canvas?.drawColor(Color.TRANSPARENT,PorterDuff.Mode.MULTIPLY)
+
+    fun clear() {
+        canvas?.drawColor(Color.TRANSPARENT, PorterDuff.Mode.MULTIPLY)
         paths.clear()
     }
+
     override fun setOnTouchListener(l: OnTouchListener?) {
         super.setOnTouchListener(l)
     }
 
-    data class PathData(val path : Path, val color : Int, val thickness : Float)
-
-
+    data class PathData(val path: Path, val color: Int, val thickness: Float)
 
 
 }
