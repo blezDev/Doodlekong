@@ -26,6 +26,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+
 @AndroidEntryPoint
 class SelectRoomFragment : Fragment() {
     private lateinit var binding : FragmentSelectRoomBinding

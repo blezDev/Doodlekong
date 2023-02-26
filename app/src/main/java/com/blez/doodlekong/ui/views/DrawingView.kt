@@ -222,6 +222,21 @@ class DrawingView @JvmOverloads constructor(context: Context, attrs: AttributeSe
         return true
     }
 
+    fun finishOffDrawing(){
+        isDrawing = false
+        path.lineTo(curX?: return,curY?:return)
+        canvas?.drawPath(path, paint)
+        paths.push(PathData(path,paint.color,paint.strokeWidth))
+        pathDataChangedListener?.let {change->
+
+            change(paths)
+        }
+        path = Path()
+        invalidate()
+    }
+
+
+
     fun setThickness(thickness: Float) {
         paint.strokeWidth = thickness
     }

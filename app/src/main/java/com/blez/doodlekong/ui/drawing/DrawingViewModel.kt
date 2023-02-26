@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.blez.doodlekong.R
 import com.blez.doodlekong.data.remote.ws.*
 import com.blez.doodlekong.data.remote.ws.DrawAction.Companion.ACTION_UNDO
+import com.blez.doodlekong.utils.CoroutineTimer
 import com.blez.doodlekong.utils.DispatcherProvider
 import com.google.gson.Gson
 import com.tinder.scarlet.WebSocket
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +37,43 @@ class DrawingViewModel @Inject constructor(
         object UndoEvent : SocketEvent()
 
     }
+    private val _newWords = MutableStateFlow(NewWords(listOf()))
+    val newWords: StateFlow<NewWords>
+        get() = _newWords
+
+    private val timer = CoroutineTimer()
+    private var timerjob : Job? = null
+
+
+    private val _phase = MutableStateFlow(PhaseChange(null,0L,null))
+    val phase: StateFlow<PhaseChange>
+        get() = _phase
+
+    private val _phaseTime = MutableStateFlow(0L)
+    val phaseTime  : StateFlow<Long>
+        get() = _phaseTime
+
+
+
+
+
+
+    private fun setTimer(duration : Long){
+        timerjob?.cancel()
+        timerjob = timer.timeAndEmit(duration,viewModelScope){
+        _phaseTime.value = it
+        }
+    }
+
+
+
+
+
+
+
+    private val _chat = MutableStateFlow<List<BaseModel>>(listOf())
+    val chat: StateFlow<List<BaseModel>>
+    get() = _chat
 
 
     private val _selectedColorButtonId = MutableStateFlow(R.id.rbBlack)
@@ -79,12 +118,39 @@ class DrawingViewModel @Inject constructor(
             }
         }
     }
+    fun cancelTimer(){
+        timerjob?.cancel()
+    }
 
     fun observeBaseModel() {
         viewModelScope.launch(dispatchers.io) {
             drawingApi.observeBaseModels().collect { data ->
                 when (data) {
                     is DrawData -> socketEventChannel.send(SocketEvent.DrawDataEvent(data))
+
+                    is ChatMessage->{
+                       socketEventChannel.send(SocketEvent.ChatMessageEvent(data))
+                    }
+
+                    is Announcement->{
+                        socketEventChannel.send(SocketEvent.AnnouncementEvent(data))
+                    }
+                    is PhaseChange->{
+                       data.phase?.let {
+                           _phase.value = data
+                       }
+                        _phaseTime.value = data.time
+                        if(data.phase != Room.Phase.WAITING_FOR_PLAYERS)
+                        {
+                            setTimer(data.time)
+                        }
+                    }
+
+                    is NewWords->{
+                        _newWords.value = data
+                        socketEventChannel.send(SocketEvent.NewWordsEvent(data))
+                    }
+
                     is DrawAction -> {
                         when (data.action) {
                             ACTION_UNDO -> socketEventChannel.send(SocketEvent.UndoEvent)
@@ -99,12 +165,26 @@ class DrawingViewModel @Inject constructor(
             }
         }
     }
+    fun chooseWord(word : String, roomName : String){
+        val chosenWord = ChosenWord(word, roomName)
+        sendBaseModel(chosenWord)
+    }
 
     fun sendBaseModel(data: BaseModel) {
         viewModelScope.launch(dispatchers.io) {
             drawingApi.sendBaseModel(data)
         }
     }
+
+    fun sendChatMessage(message : ChatMessage){
+        if(message.message.trim().isEmpty()){
+            return
+        }
+       viewModelScope.launch(dispatchers.io) {
+           drawingApi.sendBaseModel(message)
+       }
+    }
+
 
     init {
         observeBaseModel()

@@ -17,6 +17,7 @@ import com.blez.doodlekong.data.remote.ws.Room
 import com.blez.doodlekong.databinding.FragmentCreateRoomBinding
 import com.blez.doodlekong.ui.setup.CreateRoomViewModel
 import com.blez.doodlekong.utils.Constants
+import com.blez.doodlekong.utils.hideKeyboard
 import com.blez.doodlekong.utils.navigateSafely
 import com.blez.doodlekong.utils.snakeBar
 import dagger.hilt.android.AndroidEntryPoint
@@ -106,6 +107,8 @@ class CreateRoomFragment : Fragment() {
                 name = binding.etRoomName.text.toString(), maxPlayer =
                 binding.tvMaxPersons.text.toString().toInt()
             ))
+            requireActivity().hideKeyboard(binding.root)
+
         }
 
     }
