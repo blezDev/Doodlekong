@@ -6,6 +6,9 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.MotionEvent.*
 import android.view.View
+import com.blez.doodlekong.data.remote.ws.BaseModel
+import com.blez.doodlekong.data.remote.ws.DrawAction
+import com.blez.doodlekong.data.remote.ws.DrawAction.Companion.ACTION_UNDO
 import com.blez.doodlekong.data.remote.ws.DrawData
 import com.blez.doodlekong.utils.Constants
 import java.lang.Math.abs
@@ -168,6 +171,13 @@ class DrawingView @JvmOverloads constructor(context: Context, attrs: AttributeSe
         }
     }
 
+
+
+    fun setPaths(pathData : Stack<PathData>){
+        this.paths = pathData
+    }
+
+
     private fun createDrawData(
         fromX: Float,
         fromY: Float,
@@ -235,6 +245,27 @@ class DrawingView @JvmOverloads constructor(context: Context, attrs: AttributeSe
         invalidate()
     }
 
+
+    fun update(drawActions : List<BaseModel>){
+        drawActions.forEach {drawAction->
+            when(drawAction){
+                is DrawData->{
+                    when(drawAction.motionEvent){
+                        ACTION_DOWN-> startedTouchExternally(drawAction)
+                        ACTION_MOVE-> movedTouchExternally(drawAction)
+                        ACTION_UP-> releasedTouchExternally(drawAction)
+
+
+                    }
+                }
+                is DrawAction->{
+                    when(drawAction.action){
+                        ACTION_UNDO->undo()
+                    }
+                }
+            }
+        }
+    }
 
 
     fun setThickness(thickness: Float) {

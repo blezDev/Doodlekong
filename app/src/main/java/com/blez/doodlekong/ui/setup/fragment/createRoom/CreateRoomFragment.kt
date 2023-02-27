@@ -57,6 +57,7 @@ class CreateRoomFragment : Fragment() {
 
                   is  CreateRoomViewModel.SetupEvent.CreateRoomEvent->{
                         createRoomViewModel.createRoom(it.room)
+                      createRoomViewModel.joinRoom(args.username,it.room.name)
                     }
                     is CreateRoomViewModel.SetupEvent.InputEmptyError->{
                     binding.createRoomProgressBar.isVisible = false
@@ -75,6 +76,7 @@ class CreateRoomFragment : Fragment() {
                         binding.createRoomProgressBar.isVisible = false
                         snakeBar(it.error)
                     }
+
 
 
                     is CreateRoomViewModel.SetupEvent.JoinRoomEvent->{

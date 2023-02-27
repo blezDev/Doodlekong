@@ -1,10 +1,16 @@
 package com.blez.doodlekong.ui.drawing
 
+import android.Manifest
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
@@ -12,33 +18,53 @@ import androidx.core.view.GravityCompat
 import androidx.core.view.isVisible
 import androidx.databinding.DataBindingUtil
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.OnLifecycleEvent
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.blez.doodlekong.R
 import com.blez.doodlekong.adapters.ChatMessageAdapter
+import com.blez.doodlekong.adapters.PlayerAdapter
 import com.blez.doodlekong.data.remote.ws.*
 import com.blez.doodlekong.databinding.ActivityDrawingBinding
+import com.blez.doodlekong.ui.dialogs.LeaveDialog
 import com.blez.doodlekong.utils.Constants
 import com.blez.doodlekong.utils.Constants.DEFAULT_PAINT_THICKNESS
+import com.blez.doodlekong.utils.Constants.MAX_WORD_VOICE_GUESS_AMOUNT
+import com.blez.doodlekong.utils.Constants.REQUEST_CODE_RECORD_AUDIO
 import com.blez.doodlekong.utils.hideKeyboard
 import com.google.android.material.snackbar.Snackbar
 import com.tinder.scarlet.WebSocket
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import pub.devrel.easypermissions.AppSettingsDialog
+import pub.devrel.easypermissions.EasyPermissions
+import java.util.Locale
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class DrawingActivity : AppCompatActivity() {
+class DrawingActivity : AppCompatActivity(), LifecycleObserver , EasyPermissions.PermissionCallbacks, RecognitionListener {
     private lateinit var binding: ActivityDrawingBinding
     private val drawingViewModel: DrawingViewModel by viewModels()
     private lateinit var toggle: ActionBarDrawerToggle
     private lateinit var rvPlayers: RecyclerView
     private val args : DrawingActivityArgs by  navArgs()
     private lateinit var chatMessageAdapter: ChatMessageAdapter
+    @Inject
+     lateinit var playerAdapter: PlayerAdapter
     private var updateChatJob : Job?= null
+    private var updatePlayerJob : Job?= null
+
+    private lateinit var speechRecognizer : SpeechRecognizer
+    private lateinit var speechIntent : Intent
+
+
 
     @Inject
     lateinit var clientId : String
@@ -50,7 +76,7 @@ class DrawingActivity : AppCompatActivity() {
         listenToConnectionEvents()
         listenToSocketEvents()
         setupRecyclerView()
-
+        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         toggle = ActionBarDrawerToggle(this, binding.drawerLayout, R.string.open, R.string.close)
         toggle.syncState()
 
@@ -77,6 +103,24 @@ class DrawingActivity : AppCompatActivity() {
             override fun onDrawerStateChanged(newState: Int) = Unit
 
         })
+
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechIntent= Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.US)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,packageName)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,MAX_WORD_VOICE_GUESS_AMOUNT)
+        }
+
+        if (SpeechRecognizer.isRecognitionAvailable(this)){
+            speechRecognizer.setRecognitionListener(this)
+        }
+
+       rvPlayers.apply {
+           adapter = playerAdapter
+           layoutManager = LinearLayoutManager(this@DrawingActivity)
+       }
         binding.ibUndo.setOnClickListener {
             if (binding.drawingView.isUserDrawing){
                 binding.drawingView.undo()
@@ -96,6 +140,8 @@ class DrawingActivity : AppCompatActivity() {
         }
 
 
+
+
         binding.colorGroup.setOnCheckedChangeListener { _, checkedId ->
             drawingViewModel.checkRadioButton(checkedId)
         }
@@ -104,10 +150,67 @@ class DrawingActivity : AppCompatActivity() {
                 drawingViewModel.sendBaseModel(data = it)
             }
         }
+        binding.drawingView.setOnPathDataChangedListener {
+            drawingViewModel.setPathData(it)
+        }
+
+
+        binding.ibMic.setOnClickListener {
+            if (drawingViewModel.speechToTextEnabled.value && hasRecordAudioPermission())
+            {
+                drawingViewModel.startListening()
+            }else if (drawingViewModel.speechToTextEnabled.value){
+                requestRecordAudioPermission()
+            }else{
+                drawingViewModel.stopListening()
+            }
+        }
+
+
+        var lifecycleEventObserver = LifecycleEventObserver{_, event ->
+            when(event){
+                Lifecycle.Event.ON_STOP->{
+                   onAppInBackground()
+                }
+
+                else -> {}
+            }
+
+        }
+        lifecycleEventObserver
+
+
+
+
+
+
+
+
+
 
     }
 
+
+
+
     private fun subscribeToUiStateUpdates() {
+        lifecycleScope.launchWhenStarted {
+            drawingViewModel.speechToTextEnabled.collect{isEnabled->
+                if(isEnabled && !SpeechRecognizer.isRecognitionAvailable(this@DrawingActivity)){
+                    Toast.makeText(this@DrawingActivity, R.string.speech_not_available, Toast.LENGTH_LONG).show()
+                    binding.ibMic.isEnabled = false
+                }
+
+            }
+        }
+
+        lifecycleScope.launchWhenStarted {
+            drawingViewModel.pathData.collect{pathData->
+           binding.drawingView.setPaths(pathData)
+                }
+            }
+
+
         lifecycleScope.launchWhenStarted {
             drawingViewModel.chat.collect{chat->
             if(chatMessageAdapter.chatObjects.isEmpty()){
@@ -158,6 +261,34 @@ class DrawingActivity : AppCompatActivity() {
 
         }
     }
+
+
+        lifecycleScope.launchWhenStarted {
+            drawingViewModel.players.collect{players->
+                updatePlayersList(players)
+
+
+            }
+        }
+
+
+        lifecycleScope.launchWhenStarted {
+            drawingViewModel.gameState.collect{gameState->
+              binding.apply {
+                 tvCurWord.text  = gameState.word
+                 val isUserDrawing = gameState.drawingPlayer == args.username
+                  setColorGroupVisibility(isUserDrawing)
+                  setMessageInputVisibility(!isUserDrawing)
+                  drawingView.isUserDrawing = isUserDrawing
+                  ibMic.isVisible = !isUserDrawing
+                  ibUndo.isEnabled = isUserDrawing
+                  drawingView.isEnabled = isUserDrawing
+              }
+
+
+            }
+        }
+
 
         lifecycleScope.launchWhenStarted {
             drawingViewModel.phase.collect{phase->
@@ -212,8 +343,6 @@ class DrawingActivity : AppCompatActivity() {
             }
         }
 
-
-
         lifecycleScope.launchWhenStarted {
             drawingViewModel.connectionProgressBar.collect{isVisible->
                 binding.connectionProgressBar.isVisible = isVisible
@@ -225,9 +354,23 @@ class DrawingActivity : AppCompatActivity() {
             }
         }
 
-
-
     }
+
+    private fun setColorGroupVisibility(isVisible : Boolean){
+        binding.colorGroup.isVisible = isVisible
+        binding.ibUndo.isVisible = isVisible
+    }
+
+    private fun setMessageInputVisibility(isVisible: Boolean){
+        binding.apply {
+            tilMessage.isVisible = isVisible
+            ibSend.isVisible = isVisible
+            ibClearText.isVisible = isVisible
+        }
+    }
+
+
+
     private fun listenToSocketEvents() = lifecycleScope.launchWhenStarted {
         drawingViewModel.socketEvent.collect{event->
             when(event){
@@ -242,6 +385,18 @@ class DrawingActivity : AppCompatActivity() {
                         }
                     }
                 }
+
+                is DrawingViewModel.SocketEvent.GameStateEvent->{
+                    binding.drawingView.clear()
+
+
+                }
+
+                is DrawingViewModel.SocketEvent.RoundDrawInfoEvent->{
+                    binding.drawingView.update(event.data)
+                }
+
+
                 is DrawingViewModel.SocketEvent.ChatMessageEvent->{
                     addChatObjectToRecyclerView(event.data)
                 }
@@ -266,6 +421,87 @@ class DrawingActivity : AppCompatActivity() {
 
         }
     }
+
+
+    private fun hasRecordAudioPermission() = EasyPermissions.hasPermissions(
+        this,
+       Manifest.permission.RECORD_AUDIO
+    )
+    private fun requestRecordAudioPermission(){
+        EasyPermissions.requestPermissions(
+            this@DrawingActivity,
+            getString(R.string.rationale_record_audio),
+            REQUEST_CODE_RECORD_AUDIO,
+            Manifest.permission.RECORD_AUDIO
+        )
+    }
+
+
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        EasyPermissions.onRequestPermissionsResult(requestCode,permissions,grantResults,this)
+    }
+
+    override fun onPermissionsGranted(requestCode: Int, perms: MutableList<String>) {
+      if (requestCode == REQUEST_CODE_RECORD_AUDIO){
+          Toast.makeText(this,R.string.speech_to_text_info,Toast.LENGTH_LONG).show()
+      }
+    }
+
+    override fun onPermissionsDenied(requestCode: Int, perms: MutableList<String>) {
+        if (EasyPermissions.somePermissionPermanentlyDenied(this,perms)){
+            AppSettingsDialog.Builder(this).build().show()
+        }
+    }
+
+    private fun setSpeechRecognitionEnabled(isEnabled : Boolean){
+        if (isEnabled){
+            binding.ibMic.setImageResource(R.drawable.ic_mic)
+            speechRecognizer.startListening(speechIntent)
+        }else
+        {
+            binding.ibMic.setImageResource(R.drawable.ic_mic_off)
+            binding.etMessage.hint = " "
+            speechRecognizer.stopListening()
+        }
+    }
+
+
+    override fun onReadyForSpeech(params: Bundle?) {
+      binding.etMessage.text?.clear()
+        binding.etMessage.hint = getString(R.string.listening)
+    }
+
+    override fun onBeginningOfSpeech() = Unit
+
+    override fun onRmsChanged(rmsdB: Float)  = Unit
+
+    override fun onBufferReceived(buffer: ByteArray?) = Unit
+
+    override fun onEndOfSpeech() {
+       drawingViewModel.stopListening()
+    }
+
+    override fun onError(error: Int)  = Unit
+
+    override fun onResults(results: Bundle?) {
+      val strings = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+        val guessedWords = strings?.joinToString(" ")
+        guessedWords?.let {
+            binding.etMessage.setText(guessedWords)
+        }
+        speechRecognizer.stopListening()
+        drawingViewModel.stopListening()
+    }
+
+    override fun onPartialResults(partialResults: Bundle?) = Unit
+
+    override fun onEvent(eventType: Int, params: Bundle?) = Unit
 
     private fun selectColor(color: Int) {
         binding.drawingView.setColor(color)
@@ -321,11 +557,40 @@ class DrawingActivity : AppCompatActivity() {
         binding.rvChat.layoutManager?.onSaveInstanceState()
     }
 
+    private fun updatePlayersList(players : List<PlayerData>){
+        updatePlayerJob?.cancel()
+        updatePlayerJob = lifecycleScope.launch {
+            playerAdapter.updataDataset(players)
+        }
+    }
+
+
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (toggle.onOptionsItemSelected(item)) {
             return true
         }
         return super.onOptionsItemSelected(item)
     }
+
+
+
+private fun onAppInBackground(){
+    drawingViewModel.disconnect()
+}
+
+
+    override fun onBackPressed() {
+        LeaveDialog().apply {
+            setPositiveClickListener {
+             drawingViewModel.disconnect()
+                finish()
+            }
+
+        }.show(supportFragmentManager,null)
+
+    }
+
+
 
 }

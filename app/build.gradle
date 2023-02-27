@@ -55,7 +55,7 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.4'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.0'
 
-
+    implementation "androidx.lifecycle:lifecycle-extensions:2.2.0"
 
     // ViewModel
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
@@ -77,6 +77,8 @@ dependencies {
     // optional - Test helpers for Lifecycle runtime
     testImplementation "androidx.lifecycle:lifecycle-runtime-testing:$lifecycle_version"
 
+
+    implementation 'pub.devrel:easypermissions:3.0.0'
 
 
     def scarletVersion = '0.1.12'

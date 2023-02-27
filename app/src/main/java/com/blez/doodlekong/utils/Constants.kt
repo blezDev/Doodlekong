@@ -12,14 +12,14 @@ object Constants {
     const val MAX_USERNAME_LENGTH = 12
     const val MIN_ROOM_NAME_LENGTH = 4
     const val MAX_ROOM_NAME_LENGTH = 16
-
+    const val MAX_WORD_VOICE_GUESS_AMOUNT = 3
     const val SEARCH_DELAY = 300L
     const val DEFAULT_PAINT_THICKNESS = 12f
 
     const val RECONNECT_INTERVAL = 3000L
 
 
-
+    const val REQUEST_CODE_RECORD_AUDIO = 1
 
     const val MAX_ROOM_SIZE = 8
     const val TYPE_CHAT_MESSAGE = "TYPE_CHAT_MESSAGE"

@@ -5,9 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.blez.doodlekong.R
 import com.blez.doodlekong.data.remote.ws.*
 import com.blez.doodlekong.data.remote.ws.DrawAction.Companion.ACTION_UNDO
+import com.blez.doodlekong.ui.views.DrawingView
+import com.blez.doodlekong.utils.Constants
 import com.blez.doodlekong.utils.CoroutineTimer
 import com.blez.doodlekong.utils.DispatcherProvider
 import com.google.gson.Gson
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.tinder.scarlet.WebSocket
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -17,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import java.util.*
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,7 +38,7 @@ class DrawingViewModel @Inject constructor(
         data class NewWordsEvent(val data: NewWords) : SocketEvent()
         data class ChosenWordEvent(val data: ChosenWord) : SocketEvent()
         data class GameErrorEvent(val data: GameError) : SocketEvent()
-        data class RoundDrawInfoEvent(val data: RoundDrawInfo) : SocketEvent()
+        data class RoundDrawInfoEvent(val data: List<BaseModel>) : SocketEvent()
         object UndoEvent : SocketEvent()
 
     }
@@ -52,6 +57,15 @@ class DrawingViewModel @Inject constructor(
     private val _phaseTime = MutableStateFlow(0L)
     val phaseTime  : StateFlow<Long>
         get() = _phaseTime
+
+    private val _pathData = MutableStateFlow(Stack<DrawingView.PathData>())
+    val pathData : StateFlow<Stack<DrawingView.PathData>>
+    get() = _pathData
+
+
+    private val _players = MutableStateFlow<List<PlayerData>>(listOf())
+    val players : StateFlow<List<PlayerData>>
+    get() = _players
 
 
 
@@ -76,6 +90,7 @@ class DrawingViewModel @Inject constructor(
     get() = _chat
 
 
+
     private val _selectedColorButtonId = MutableStateFlow(R.id.rbBlack)
     val selectedColorButtonId: StateFlow<Int>
         get() = _selectedColorButtonId
@@ -85,9 +100,24 @@ class DrawingViewModel @Inject constructor(
     val connectionProgressBar: MutableStateFlow<Boolean>
         get() = _connectionProgressBar
 
+
+
+    private val _speechToTextEnabled = MutableStateFlow(true)
+    val speechToTextEnabled: MutableStateFlow<Boolean>
+        get() = _speechToTextEnabled
+
+
+
+
     private val _chooseWordOverlayVisible = MutableStateFlow(false)
     val chooseWordOverlayVisible: MutableStateFlow<Boolean>
         get() = _chooseWordOverlayVisible
+
+
+
+    private val _gameState = MutableStateFlow<GameState>(GameState("",""))
+    val gameState: StateFlow<GameState>
+        get() = _gameState
 
 
     private val connectionEventChannel = Channel<WebSocket.Event>()
@@ -118,10 +148,22 @@ class DrawingViewModel @Inject constructor(
             }
         }
     }
+
+    fun startListening( ){
+        _speechToTextEnabled.value = true
+
+    }
+    fun stopListening( ){
+        _speechToTextEnabled.value = false
+
+    }
+
     fun cancelTimer(){
         timerjob?.cancel()
     }
-
+    fun setPathData(stack : Stack<DrawingView.PathData>){
+        _pathData.value = stack
+    }
     fun observeBaseModel() {
         viewModelScope.launch(dispatchers.io) {
             drawingApi.observeBaseModels().collect { data ->
@@ -146,9 +188,33 @@ class DrawingViewModel @Inject constructor(
                         }
                     }
 
+                    is RoundDrawInfo->{
+                        val drawActions = mutableListOf<BaseModel>()
+                        data.data.forEach {drawAction->
+                            val jsonObject = JsonParser.parseString(drawAction).asJsonObject
+                         val type =   when(jsonObject.get("type").asString){
+                                Constants.TYPE_DRAW_DATA-> DrawData::class.java
+                                Constants.TYPE_DRAW_ACTION-> DrawAction::class.java
+                                else -> BaseModel::class.java
+                            }
+                            drawActions.add(gson.fromJson(drawAction,type))
+                        }
+
+                        socketEventChannel.send(SocketEvent.RoundDrawInfoEvent(drawActions))
+                    }
+
+
                     is NewWords->{
                         _newWords.value = data
                         socketEventChannel.send(SocketEvent.NewWordsEvent(data))
+                    }
+
+                    is GameState->{
+                        _gameState.value = data
+                        socketEventChannel.send(SocketEvent.GameStateEvent(data))
+                    }
+                    is  PlayersList->{
+                        _players.value = data.players
                     }
 
                     is DrawAction -> {
@@ -185,6 +251,9 @@ class DrawingViewModel @Inject constructor(
        }
     }
 
+    fun disconnect(){
+        sendBaseModel(DisconnectRequest())
+    }
 
     init {
         observeBaseModel()

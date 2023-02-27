@@ -69,9 +69,7 @@ object AppModule {
     }
 
 
-    @Singleton
-    @Provides
-    fun providesSetupRepository(setupApi: SetupApi,@ApplicationContext context: Context) : SetupRepository = DefaultSetupRepositoryImpl(setupApi, context)
+
 
     @Singleton
     @Provides
@@ -80,31 +78,6 @@ object AppModule {
         return Gson()
     }
 
-    @Singleton
-    @Provides
-    fun providesDrawingApi(app : Application,okHttpClient: OkHttpClient,gson: Gson) : DrawingApi{
-        return Scarlet.Builder()
-            .backoffStrategy(LinearBackoffStrategy(RECONNECT_INTERVAL))
-            .lifecycle(AndroidLifecycle.ofApplicationForeground(app))
-            .webSocketFactory(okHttpClient.newWebSocketFactory(if (USE_LOCALHOST) WS_BASE_URL_LOCAL_HOST else WS_BASE_URL))
-            .addStreamAdapterFactory(FlowStreamAdapter.Factory)
-            .addMessageAdapterFactory(CustomGsonMessageAdapter.Factory(gson))
-            .build()
-            .create(DrawingApi::class.java)
-    }
-
-
-
-
-    @Singleton
-    @Provides
-    fun providesSetupApi(okHttpClient: OkHttpClient) : SetupApi{
-    return Retrofit.Builder()
-        .baseUrl(if (USE_LOCALHOST) HTTP_BASE_URL_LOCAL_HOST else HTTP_BASE_URL)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-        .create(SetupApi::class.java)
-    }
 
 
 
