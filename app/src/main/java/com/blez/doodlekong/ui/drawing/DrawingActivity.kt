@@ -199,9 +199,10 @@ class DrawingActivity : AppCompatActivity(), LifecycleObserver , EasyPermissions
                 if(isEnabled && !SpeechRecognizer.isRecognitionAvailable(this@DrawingActivity)){
                     Toast.makeText(this@DrawingActivity, R.string.speech_not_available, Toast.LENGTH_LONG).show()
                     binding.ibMic.isEnabled = false
-                }
-
+                }else
+                    setSpeechRecognitionEnabled(isEnabled)
             }
+
         }
 
         lifecycleScope.launchWhenStarted {
