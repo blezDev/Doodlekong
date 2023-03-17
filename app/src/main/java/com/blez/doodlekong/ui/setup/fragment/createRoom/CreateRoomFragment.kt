@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
@@ -57,7 +58,7 @@ class CreateRoomFragment : Fragment() {
 
                   is  CreateRoomViewModel.SetupEvent.CreateRoomEvent->{
                         createRoomViewModel.createRoom(it.room)
-                      createRoomViewModel.joinRoom(args.username,it.room.name)
+                         createRoomViewModel.joinRoom(args.username,it.room.name)
                     }
                     is CreateRoomViewModel.SetupEvent.InputEmptyError->{
                     binding.createRoomProgressBar.isVisible = false
@@ -106,10 +107,11 @@ class CreateRoomFragment : Fragment() {
         binding.btnCreateRoom.setOnClickListener {
             binding.createRoomProgressBar.isVisible = true
             createRoomViewModel.createRoom(room = Room(
-                name = binding.etRoomName.text.toString(), maxPlayer =
-                binding.tvMaxPersons.text.toString().toInt()
+                name = binding.etRoomName.text.toString(),
+                maxPlayer = binding.tvMaxPersons.text.toString().toInt()
             ))
             requireActivity().hideKeyboard(binding.root)
+
 
         }
 

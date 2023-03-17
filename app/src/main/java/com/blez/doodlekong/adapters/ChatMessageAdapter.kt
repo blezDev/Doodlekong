@@ -80,9 +80,18 @@ class ChatMessageAdapter(private val username : String) : RecyclerView.Adapter<R
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
      return when(viewType){
-         VIEW_TYPE_INCOMING_MESSAGE->DataBindingUtil.inflate(LayoutInflater.from(parent.context), R.layout.item_chat_message_incoming,parent,false)
-         VIEW_TYPE_OUTGOING_MESSAGE->DataBindingUtil.inflate(LayoutInflater.from(parent.context), R.layout.item_chat_message_outgoing,parent,false)
-         VIEW_TYPE_ANNOUNCEMENT_INCOMING_MESSAGE->DataBindingUtil.inflate(LayoutInflater.from(parent.context), R.layout.item_announcement,parent,false)
+         VIEW_TYPE_INCOMING_MESSAGE->{
+         incomingBinding =DataBindingUtil.inflate(LayoutInflater.from(parent.context), R.layout.item_chat_message_incoming,parent,false)
+             IncomingChatMessageViewHolder(incomingBinding)
+         }
+         VIEW_TYPE_OUTGOING_MESSAGE->{
+            outgoingBinding = DataBindingUtil.inflate(LayoutInflater.from(parent.context), R.layout.item_chat_message_outgoing,parent,false)
+             OutGoingChatMessageViewHolder(outgoingBinding)
+         }
+         VIEW_TYPE_ANNOUNCEMENT_INCOMING_MESSAGE->{
+           announcementBinding =  DataBindingUtil.inflate(LayoutInflater.from(parent.context), R.layout.item_announcement,parent,false)
+             AnnouncementChatMessageViewHolder(announcementBinding)
+         }
          else -> throw IllegalStateException("Unknow ViewType")
      }
     }
